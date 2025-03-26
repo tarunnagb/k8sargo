@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mavendeployment
+  namespace: mobackns
+  labels:
+    app: mavenapp
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  minReadySeconds: 60
+  selector:
+    matchLabels:
+      app: mavenapp
+  template:
+    metadata:
+      name: mavenpod
+      labels:
+        app: mavenapp
+    spec:
+      imagePullSecrets:
+      - name: ecr-secret
+      containers:
+      - name: mavenappcontainer
+        image: 087770005543.dkr.ecr.ap-south-1.amazonaws.com/maven:latest
+        ports:
+        - containerPort: 8080
