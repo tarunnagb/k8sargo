@@ -6,7 +6,7 @@ metadata:
   labels:
     app: mavenapp
 spec:
-  replicas: 2
+  replicas: 3
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -26,6 +26,6 @@ spec:
       - name: ecr-secret
       containers:
       - name: mavenappcontainer
-        image: 087770005543.dkr.ecr.ap-south-1.amazonaws.com/maven:latest
+        image: 087770005543.dkr.ecr.ap-south-1.amazonaws.com/maven:1
         ports:
         - containerPort: 8080
