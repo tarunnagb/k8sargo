@@ -26,6 +26,6 @@ spec:
       - name: ecr-secret
       containers:
       - name: mavenappcontainer
-        image: 087770005543.dkr.ecr.ap-south-1.amazonaws.com/maven:1
+        image: 087770005543.dkr.ecr.ap-south-1.amazonaws.com/maven:2
         ports:
         - containerPort: 8080
