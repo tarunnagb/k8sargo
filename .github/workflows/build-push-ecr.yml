@@ -40,6 +40,7 @@ jobs:
     - name: Build, tag, and push Docker image
       env:
         ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
+        GIT_SHA: ${{ env.GIT_SHA }}
       run: |
         docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$GIT_SHA .
         docter tag $ECR_REGISTRY/$ECR_REPOSITORY:$GIT_SHA
