@@ -2,12 +2,13 @@ apiVersion: batch/v1
 kind: Job
 metadata:
   name: mssql-script-runner
+  namespace: mobackns
 spec:
   template:
     spec:
       containers:
         - name: mssql-runner
-          image: 087770005543.dkr.ecr.ap-south-1.amazonaws.com/dbscript:5
+          image: 087770005543.dkr.ecr.ap-south-1.amazonaws.com/dbscript:latest
           command: ["sqlcmd"]
           args:
             [
