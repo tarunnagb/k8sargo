@@ -1,0 +1,36 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mssql-script-runner
+spec:
+  template:
+    spec:
+      containers:
+        - name: mssql-runner
+          image: 087770005543.dkr.ecr.ap-south-1.amazonaws.com/dbscript:5
+          command: ["sqlcmd"]
+          args:
+            [
+              "-S", "$(DB_HOST),1433",
+              "-U", "$(DB_USER)",
+              "-P", "$(DB_PASSWORD)",
+              "-i", "/app/init-db.sql"
+            ]
+          env:
+            - name: DB_HOST
+              valueFrom:
+                secretKeyRef:
+                  name: mssql-secrets
+                  key: db_host
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mssql-secrets
+                  key: db_user
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mssql-secrets
+                  key: db_password
+      restartPolicy: Never
+  backoffLimit: 1
