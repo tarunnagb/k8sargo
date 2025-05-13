@@ -14,6 +14,9 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v3
 
+    - name: Set Git SHA tag
+      run: echo "GIT_SHA=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
     - name: Configure AWS credentials
       uses: aws-actions/configure-aws-credentials@v2
       with:
@@ -33,7 +36,7 @@ jobs:
         elif [[ "${{ github.ref_name }}" == "develop" ]]; then
           echo "ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY_DEV }}" >> $GITHUB_ENV
         else
-          echo "Unsupported branch. Skipping push."
+          echo "Unsupported branch: ${{ github.ref_name }}. Skipping push."
           exit 1
         fi
 
@@ -41,7 +44,15 @@ jobs:
       env:
         ECR_REGISTRY: ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
         GIT_SHA: ${{ env.GIT_SHA }}
+        ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
       run: |
-        docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$GIT_SHA .
-        docter tag $ECR_REGISTRY/$ECR_REPOSITORY:$GIT_SHA
-        docker push $ECR_REGISTRY/$ECR_REPOSITORY:$GIT_SHA
+        IMAGE_NAME=$ECR_REGISTRY/$ECR_REPOSITORY
+
+        echo "Building Docker image from ./docker-db..."
+        docker build -t $IMAGE_NAME:$GIT_SHA ./docker-db
+
+        echo "Tagging with 'latest'..."
+        docker tag $IMAGE_NAME:$GIT_SHA $IMAGE_NAME:$GIT_SHA
+
+        echo "Pushing tags $GIT_SHA and latest to $IMAGE_NAME"
+        docker push $IMAGE_NAME:$GIT_SHA
