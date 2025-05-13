@@ -49,10 +49,11 @@ jobs:
         IMAGE_NAME=$ECR_REGISTRY/$ECR_REPOSITORY
 
         echo "Building Docker image from ./docker-db..."
-        docker build -t $IMAGE_NAME:$GIT_SHA ./docker-db
+        docker build -f docker-db/Dockerfile -t $IMAGE_NAME:$GIT_SHA .
 
         echo "Tagging with 'latest'..."
-        docker tag $IMAGE_NAME:$GIT_SHA $IMAGE_NAME:$GIT_SHA
+        docker tag $IMAGE_NAME:$GIT_SHA $IMAGE_NAME:latest
 
         echo "Pushing tags $GIT_SHA and latest to $IMAGE_NAME"
         docker push $IMAGE_NAME:$GIT_SHA
+        docker push $IMAGE_NAME:latest
