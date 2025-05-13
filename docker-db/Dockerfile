@@ -1,5 +1,7 @@
 FROM mcr.microsoft.com/mssql/server:2019-latest
 
+USER root
+
 # Install required packages and Microsoft SQL tools
 RUN apt-get update && \
     apt-get install -y curl apt-transport-https gnupg2 && \
