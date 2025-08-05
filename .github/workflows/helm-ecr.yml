@@ -63,7 +63,7 @@ jobs:
           ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
           ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ inputs.region }}.amazonaws.com"
           REPO_NAME="helm-${{ inputs.helmChartPath }}-${{ inputs.environment }}"
-          ECR_URI="oci://$ECR_REGISTRY/$REPO_NAME"
+          ECR_URI="oci://${ECR_REGISTRY}/${REPO_NAME}"
 
           echo "ECR_REGISTRY=$ECR_REGISTRY" >> $GITHUB_ENV
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
@@ -75,11 +75,11 @@ jobs:
       - name: Package Helm chart
         id: helm-package
         run: |
-          helm dependency update ${{ inputs.helmChartPath }}
-          CHART_PACKAGE=$(helm package ${{ inputs.helmChartPath }} --destination . | awk '{print $NF}')
+          helm dependency update "${{ inputs.helmChartPath }}"
+          CHART_PACKAGE=$(helm package "${{ inputs.helmChartPath }}" --destination . | awk '{print $NF}')
           echo "CHART_PACKAGE=$CHART_PACKAGE" >> $GITHUB_ENV
 
       - name: Push Helm chart to ECR
-        if: ${{ inputs.isHelmChartPush }}
+        if: ${{ inputs.isHelmChartPush == true }}
         run: |
-          helm push "$CHART_PACKAGE" $ECR_URI
+          helm push "$CHART_PACKAGE" "$ECR_URI"
