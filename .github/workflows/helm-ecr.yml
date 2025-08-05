@@ -89,4 +89,7 @@ jobs:
         if: ${{ inputs.isHelmChartPush }}
         run: |
           echo "Pushing Helm chart to: ${ECR_URI}"
-          helm push "${CHART_PACKAGE}" "${ECR_URI}" --destination "helm-alb-ingress-dev" --debug
+          # Rename the package to match exactly your ECR repo name
+          NEW_NAME="helm-alb-ingress-dev-$(date +%s).tgz"
+          mv "${CHART_PACKAGE}" "${NEW_NAME}"
+          helm push "${NEW_NAME}" "${ECR_URI}" --debug
