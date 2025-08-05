@@ -58,11 +58,11 @@ jobs:
           role-skip-session-tagging: true
           role-duration-seconds: 1200
 
-      - name: Set Helm ECR variables and login
+      - name: Set ECR variables and login to Helm registry
         run: |
           ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
           ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ inputs.region }}.amazonaws.com"
-          REPO_NAME="helm-${{inputs.helmChartPath}}-${{ inputs.environment }}"
+          REPO_NAME="helm-${{ inputs.helmChartPath }}-${{ inputs.environment }}"
           ECR_URI="oci://$ECR_REGISTRY/$REPO_NAME"
 
           echo "ECR_REGISTRY=$ECR_REGISTRY" >> $GITHUB_ENV
@@ -73,12 +73,13 @@ jobs:
             | helm registry login --username AWS --password-stdin $ECR_REGISTRY
 
       - name: Package Helm chart
+        id: helm-package
         run: |
           helm dependency update ${{ inputs.helmChartPath }}
-          helm package ${{ inputs.helmChartPath }} --destination .
+          CHART_PACKAGE=$(helm package ${{ inputs.helmChartPath }} --destination . | awk '{print $NF}')
+          echo "CHART_PACKAGE=$CHART_PACKAGE" >> $GITHUB_ENV
 
       - name: Push Helm chart to ECR
         if: ${{ inputs.isHelmChartPush }}
         run: |
-          CHART_PACKAGE=$(ls ${{ inputs.helmChartPath }}-*.tgz)
-          helm push $CHART_PACKAGE $ECR_URI
+          helm push "$CHART_PACKAGE" $ECR_URI
