@@ -81,21 +81,12 @@ jobs:
         id: helm-package
         run: |
           helm dependency update "${{ inputs.helmChartPath }}"
-          # Get the chart name and version
-          CHART_NAME=$(yq e '.name' "${{ inputs.helmChartPath }}/Chart.yaml")
-          CHART_VERSION=$(yq e '.version' "${{ inputs.helmChartPath }}/Chart.yaml")
-          # Package with explicit name to match ECR repo
-          helm package "${{ inputs.helmChartPath }}" --destination . --version "$CHART_VERSION" --app-version "$CHART_VERSION"
+          helm package "${{ inputs.helmChartPath }}" --destination .
           CHART_PACKAGE=$(ls *.tgz)
           echo "CHART_PACKAGE=${CHART_PACKAGE}" >> $GITHUB_ENV
-          echo "CHART_NAME=${CHART_NAME}" >> $GITHUB_ENV
-          echo "CHART_VERSION=${CHART_VERSION}" >> $GITHUB_ENV
       
       - name: Push Helm chart to ECR
         if: ${{ inputs.isHelmChartPush }}
         run: |
           echo "Pushing Helm chart to: ${ECR_URI}"
-          # Rename the chart package to match ECR repo name exactly
-          NEW_PACKAGE="helm-alb-ingress-dev-${CHART_VERSION}.tgz"
-          mv "${CHART_PACKAGE}" "${NEW_PACKAGE}"
-          helm push "${NEW_PACKAGE}" "${ECR_URI}" --debug
+          helm push "${CHART_PACKAGE}" "${ECR_URI}" --destination "helm-alb-ingress-dev" --debug
