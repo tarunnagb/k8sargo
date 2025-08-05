@@ -41,7 +41,7 @@ on:
 jobs:
   helm-publish:
     name: Build and Push Helm Chart
-    runs-on: [self-hosted, Linux, X64,tar-runner]
+    runs-on: [self-hosted, Linux, X64, tar-runner]
     permissions:
       id-token: write
       contents: read
@@ -58,18 +58,19 @@ jobs:
           role-skip-session-tagging: true
           role-duration-seconds: 1200
 
-      - name: Login to Amazon ECR (Helm)
+      - name: Set Helm ECR variables and login
         run: |
-          aws ecr get-login-password --region ${{ inputs.region }} \
-            | helm registry login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+          ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
+          ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ inputs.region }}.amazonaws.com"
+          REPO_NAME="helm-${{inputs.helmChartPath}}-${{ inputs.environment }}"
+          ECR_URI="oci://$ECR_REGISTRY/$REPO_NAME"
 
-      - name: Set ECR Helm repository name and URI
-        id: helm-vars
-        run: |
-          REPO_NAME="helm-alb-ingress-${{ inputs.environment }}"
-          ECR_REGISTRY="$(aws sts get-caller-identity --query 'Account' --output text).dkr.ecr.${{ inputs.region }}.amazonaws.com"
+          echo "ECR_REGISTRY=$ECR_REGISTRY" >> $GITHUB_ENV
           echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
-          echo "ECR_URI=oci://$ECR_REGISTRY/$REPO_NAME" >> $GITHUB_ENV
+          echo "ECR_URI=$ECR_URI" >> $GITHUB_ENV
+
+          aws ecr get-login-password --region ${{ inputs.region }} \
+            | helm registry login --username AWS --password-stdin $ECR_REGISTRY
 
       - name: Package Helm chart
         run: |
@@ -79,5 +80,5 @@ jobs:
       - name: Push Helm chart to ECR
         if: ${{ inputs.isHelmChartPush }}
         run: |
-          CHART_PACKAGE=$(ls alb-ingress-*.tgz)
+          CHART_PACKAGE=$(ls ${{ inputs.helmChartPath }}-*.tgz)
           helm push $CHART_PACKAGE $ECR_URI
