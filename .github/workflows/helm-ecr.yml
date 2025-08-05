@@ -1,0 +1,83 @@
+name: Helm Chart Publish
+run-name: Helm_${{ inputs.environment }}_${{ inputs.region }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        type: choice
+        description: 'Environment'
+        required: true
+        default: dev
+        options:
+          - dev
+          - qa
+          - stg
+          - prd
+
+      region:
+        type: choice
+        description: 'AWS Region'
+        required: true
+        default: us-east-1
+        options:
+          - us-east-1
+          - eu-central-1
+          - eu-west-1
+          - us-west-2
+          - ap-southeast-2
+          - ap-south-1
+
+      helmChartPath:
+        description: 'Path to the Helm chart'
+        default: 'alb-ingress'
+        type: string
+
+      isHelmChartPush:
+        description: 'Whether to push the Helm chart to ECR'
+        default: true
+        type: boolean
+
+jobs:
+  helm-publish:
+    name: Build and Push Helm Chart
+    runs-on: [self-hosted, Linux, X64,tar-runner]
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
+          aws-region: ${{ inputs.region }}
+          role-skip-session-tagging: true
+          role-duration-seconds: 1200
+
+      - name: Login to Amazon ECR (Helm)
+        run: |
+          aws ecr get-login-password --region ${{ inputs.region }} \
+            | helm registry login --username AWS --password-stdin ${{ steps.login-ecr.outputs.registry }}
+
+      - name: Set ECR Helm repository name and URI
+        id: helm-vars
+        run: |
+          REPO_NAME="helm-alb-ingress-${{ inputs.environment }}"
+          ECR_REGISTRY="$(aws sts get-caller-identity --query 'Account' --output text).dkr.ecr.${{ inputs.region }}.amazonaws.com"
+          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
+          echo "ECR_URI=oci://$ECR_REGISTRY/$REPO_NAME" >> $GITHUB_ENV
+
+      - name: Package Helm chart
+        run: |
+          helm dependency update ${{ inputs.helmChartPath }}
+          helm package ${{ inputs.helmChartPath }} --destination .
+
+      - name: Push Helm chart to ECR
+        if: ${{ inputs.isHelmChartPush }}
+        run: |
+          CHART_PACKAGE=$(ls alb-ingress-*.tgz)
+          helm push $CHART_PACKAGE $ECR_URI
