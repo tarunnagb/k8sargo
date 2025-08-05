@@ -7,11 +7,11 @@ replicaCount: 2
 
 # This sets the container image more information can be found here: https://kubernetes.io/docs/concepts/containers/images/
 image:
-  repository: 087770005543.dkr.ecr.ap-south-1.amazonaws.com/maven
+  repository: 380414079438.dkr.ecr.us-east-1.amazonaws.com/my-service-dev
   # This sets the pull policy for images.
   pullPolicy: IfNotPresent
   # Overrides the image tag whose default is the chart appVersion.
-  tag: 3
+  tag: 16717953021
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
