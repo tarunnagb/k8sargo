@@ -65,21 +65,27 @@ jobs:
           REPO_NAME="helm-${{ inputs.helmChartPath }}-${{ inputs.environment }}"
           ECR_URI="oci://${ECR_REGISTRY}/${REPO_NAME}"
 
-          echo "ECR_REGISTRY=$ECR_REGISTRY" >> $GITHUB_ENV
-          echo "REPO_NAME=$REPO_NAME" >> $GITHUB_ENV
-          echo "ECR_URI=$ECR_URI" >> $GITHUB_ENV
+          echo "ECR_REGISTRY=${ECR_REGISTRY}" >> $GITHUB_ENV
+          echo "REPO_NAME=${REPO_NAME}" >> $GITHUB_ENV
+          echo "ECR_URI=${ECR_URI}" >> $GITHUB_ENV
 
+          # Create ECR repository if it doesn't exist
+          aws ecr describe-repositories --repository-names "${REPO_NAME}" || \
+          aws ecr create-repository --repository-name "${REPO_NAME}"
+
+          # Login to ECR Helm registry
           aws ecr get-login-password --region ${{ inputs.region }} \
-            | helm registry login --username AWS --password-stdin $ECR_REGISTRY
+            | helm registry login --username AWS --password-stdin ${ECR_REGISTRY}
 
       - name: Package Helm chart
         id: helm-package
         run: |
           helm dependency update "${{ inputs.helmChartPath }}"
           CHART_PACKAGE=$(helm package "${{ inputs.helmChartPath }}" --destination . | awk '{print $NF}')
-          echo "CHART_PACKAGE=$CHART_PACKAGE" >> $GITHUB_ENV
+          echo "CHART_PACKAGE=${CHART_PACKAGE}" >> $GITHUB_ENV
 
       - name: Push Helm chart to ECR
         if: ${{ inputs.isHelmChartPush == true }}
         run: |
-          helm push "$CHART_PACKAGE" "$ECR_URI"
+          echo "Pushing Helm chart to: ${ECR_URI}"
+          helm push "${CHART_PACKAGE}" "${ECR_URI}" --debug
