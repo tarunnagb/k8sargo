@@ -46,6 +46,10 @@ jobs:
         run: |
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
+      - name: Install Helm Push Plugin
+        run: |
+          helm plugin install https://github.com/chartmuseum/helm-push.git
+
       - name: Package Helm Chart
         run: |
           mkdir -p packaged
@@ -59,21 +63,18 @@ jobs:
           mv "$ORIGINAL_FILE" "packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
           echo "Renamed $ORIGINAL_FILE to packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
 
-      - name: Publish to JFrog Artifactory
+      - name: Add JFrog Helm Repo
         env:
           ARTIFACTORY_URL: ${{ vars.ARTIFACTORY }}
           ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
           ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
         run: |
+          helm repo add jfrog-repo $ARTIFACTORY_URL/helm-charts-${{ inputs.chart_directory }}-${{ inputs.environment }} \
+            --username $ARTIFACTORY_USERNAME \
+            --password $ARTIFACTORY_PASSWORD
+
+      - name: Push Chart to JFrog
+        run: |
           CHART_NAME="${{ inputs.chart_directory }}"
-          ENV="${{ inputs.environment }}"
           VERSION="${{ inputs.chart_version }}"
-          FILE_NAME="${CHART_NAME}-${VERSION}.tgz"
-          ARTIFACTORY_REPO="helm-charts-${{ inputs.chart_directory }}-${ENV}"
-          TARGET_PATH="${ARTIFACTORY_REPO}/${FILE_NAME}"
-
-          echo "Uploading packaged/${FILE_NAME} to $ARTIFACTORY_URL/$TARGET_PATH"
-
-          curl -u "$ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD" \
-            -T "packaged/${FILE_NAME}" \
-            "$ARTIFACTORY_URL/$TARGET_PATH"
+          helm push packaged/${CHART_NAME}-${VERSION}.tgz jfrog-repo
