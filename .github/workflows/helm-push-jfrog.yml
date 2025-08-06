@@ -53,16 +53,15 @@ jobs:
           helm lint ${{ inputs.chart_directory }}
           helm package ${{ inputs.chart_directory }} --version ${{ inputs.chart_version }} --destination packaged
 
-      - name: Copy Helm chart with expected filename
+      - name: Rename Helm chart with expected filename
         run: |
           ORIGINAL_FILE=$(ls packaged/*.tgz)
-          cp "$ORIGINAL_FILE" "packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
-          echo "Copied $ORIGINAL_FILE to packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
+          mv "$ORIGINAL_FILE" "packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
+          echo "Renamed $ORIGINAL_FILE to packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
 
       - name: Publish to JFrog Artifactory
         env:
           ARTIFACTORY_URL: ${{ vars.ARTIFACTORY }}
-          ARTIFACTORY_REPO: helm-charts
           ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
           ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
         run: |
@@ -70,10 +69,11 @@ jobs:
           ENV="${{ inputs.environment }}"
           VERSION="${{ inputs.chart_version }}"
           FILE_NAME="${CHART_NAME}-${VERSION}.tgz"
-          TARGET_PATH="${ARTIFACTORY_REPO}/${CHART_NAME}-${ENV}/${FILE_NAME}"
+          ARTIFACTORY_REPO="helm-charts-${{ inputs.chart_directory }}-${ENV}"
+          TARGET_PATH="${ARTIFACTORY_REPO}/${FILE_NAME}"
 
           echo "Uploading packaged/${FILE_NAME} to $ARTIFACTORY_URL/$TARGET_PATH"
 
-          curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
-            -T packaged/${FILE_NAME} \
+          curl -u "$ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD" \
+            -T "packaged/${FILE_NAME}" \
             "$ARTIFACTORY_URL/$TARGET_PATH"
