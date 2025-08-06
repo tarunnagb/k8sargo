@@ -71,18 +71,32 @@ jobs:
           for chart_dir in ${{ inputs.charts_root }}/*; do
             if [ -d "$chart_dir" ] && [ -f "$chart_dir/Chart.yaml" ]; then
               chart_name=$(grep '^name:' "$chart_dir/Chart.yaml" | awk '{print $2}')
-              echo "Packaging $chart_name..."
+              echo "::group::Processing chart: $chart_name"
+      
+              echo "Updating dependencies for $chart_name"
               helm dependency update "$chart_dir"
+      
+              echo "Linting $chart_name"
               helm lint "$chart_dir"
+      
+              echo "Packaging $chart_name"
               helm package "$chart_dir" \
                 --version "${{ inputs.chart_version }}" \
                 --destination packaged
-
+      
               chart_package="packaged/${chart_name}-${{ inputs.chart_version }}.tgz"
-              echo "Uploading $chart_package to $HELM_REPO_KEY/${chart_name}-${{ inputs.chart_version }}/"
+              if [ ! -f "$chart_package" ]; then
+                echo "❌ ERROR: Chart package not found: $chart_package"
+                exit 1
+              fi
+      
+              echo "✅ Uploading $chart_package to $HELM_REPO_KEY/${chart_name}-${{ inputs.chart_version }}/"
               ./jfrog rt upload "$chart_package" "${HELM_REPO_KEY}/${chart_name}-${{ inputs.chart_version }}/" --server-id=jfrog-server
+      
+              echo "::endgroup::"
             fi
           done
+      
 
       - name: Reindex Helm Repository via API
         run: |
