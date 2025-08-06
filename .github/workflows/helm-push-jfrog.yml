@@ -54,7 +54,7 @@ jobs:
 
       - name: Publish to JFrog Artifactory
         env:
-          ARTIFACTORY_URL: ${{ var.ARTIFACTORY }}
+          ARTIFACTORY_URL: ${{ vars.ARTIFACTORY }}
           ARTIFACTORY_REPO: helm-charts
           ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
           ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
