@@ -1,4 +1,4 @@
-name: Helm Chart Publish jfrog
+name: Helm Chart Publish JFrog
 run-name: Helm_jfrog_${{ inputs.environment }}_${{ inputs.region }}
 
 on:
@@ -46,35 +46,36 @@ jobs:
         run: |
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-      - name: Install Helm Push Plugin
-        run: |
-          helm plugin install https://github.com/chartmuseum/helm-push.git
-
       - name: Package Helm Chart
         run: |
           mkdir -p packaged
           helm dependency update ${{ inputs.chart_directory }}
           helm lint ${{ inputs.chart_directory }}
-          helm package ${{ inputs.chart_directory }} --version ${{ inputs.chart_version }} --destination packaged
+          helm package ${{ inputs.chart_directory }} \
+            --version ${{ inputs.chart_version }} \
+            --destination packaged
 
-      - name: Rename Helm chart with expected filename
+      - name: Install JFrog CLI
         run: |
-          ORIGINAL_FILE=$(ls packaged/*.tgz)
-          mv "$ORIGINAL_FILE" "packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
-          echo "Renamed $ORIGINAL_FILE to packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
+          curl -fL https://install-cli.jfrog.io | sh
+          sudo mv jfrog /usr/local/bin/
 
-      - name: Add JFrog Helm Repo
+      - name: Configure JFrog CLI
         env:
           ARTIFACTORY_URL: ${{ vars.ARTIFACTORY }}
           ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
           ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
         run: |
-          helm repo add jfrog-repo $ARTIFACTORY_URL/helm-charts-${{ inputs.chart_directory }}-${{ inputs.environment }} \
-            --username $ARTIFACTORY_USERNAME \
-            --password $ARTIFACTORY_PASSWORD
+          jfrog config add jfrog-server \
+            --url=$ARTIFACTORY_URL \
+            --user=$ARTIFACTORY_USERNAME \
+            --password=$ARTIFACTORY_PASSWORD \
+            --interactive=false
 
-      - name: Push Chart to JFrog
+      - name: Push Helm Chart to JFrog
         run: |
-          CHART_NAME="${{ inputs.chart_directory }}"
-          VERSION="${{ inputs.chart_version }}"
-          helm push packaged/${CHART_NAME}-${VERSION}.tgz jfrog-repo
+          CHART_FILE="packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
+          jfrog rt upload "$CHART_FILE" "helm-charts-${{ inputs.environment }}/${{ inputs.chart_directory }}/"
+
+      - name: Cleanup JFrog CLI Config
+        run: jfrog config remove jfrog-server
