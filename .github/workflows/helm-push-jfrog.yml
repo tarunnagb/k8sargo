@@ -1,5 +1,5 @@
-name: Helm Chart Publish JFrog
-run-name: Helm_jfrog_${{ inputs.environment }}_${{ inputs.region }}
+name: Helm Chart Bulk Publish to JFrog
+run-name: Helm_bulk_jfrog_${{ inputs.environment }}_${{ inputs.region }}
 
 on:
   workflow_dispatch:
@@ -24,25 +24,25 @@ on:
           - us-east-1
           - us-west-2
 
+      charts_root:
+        type: string
+        description: 'Root folder of charts (e.g. charts)'
+        required: true
+
       chart_version:
         type: string
         description: 'Helm Chart Version (e.g. 1.0.1)'
         required: true
 
-      chart_directory:
-        type: string
-        description: 'alb-ingress'
-        required: true
-
 jobs:
-  publish-helm-chart:
+  publish-helm-charts:
     runs-on: ubuntu-latest
 
     env:
       JFROG_URL: ${{ vars.ARTIFACTORY }}
       JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
       JFROG_PASSWORD: ${{ secrets.JFROG_PASSWORD }}
-      HELM_REPO_KEY:  helm-charts-${{ inputs.environment }}  # e.g., helm-charts-dev
+      HELM_REPO_KEY: helm-charts-${{ inputs.environment }}
 
     steps:
       - name: Checkout source
@@ -52,16 +52,6 @@ jobs:
         run: |
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
           helm version
-
-      - name: Lint and Package Helm Chart
-        run: |
-          mkdir -p packaged
-          helm dependency update "${{ inputs.chart_directory }}"
-          helm lint "${{ inputs.chart_directory }}"
-          helm package "${{ inputs.chart_directory }}" \
-            --version "${{ inputs.chart_version }}" \
-            --destination packaged
-          ls -l packaged
 
       - name: Install JFrog CLI
         run: |
@@ -75,17 +65,28 @@ jobs:
             --password="${JFROG_PASSWORD}" \
             --interactive=false
 
-      - name: Upload Helm Chart to JFrog
+      - name: Package and Upload All Helm Charts
         run: |
-          CHART_PACKAGE="packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
-          echo "Uploading $CHART_PACKAGE to $HELM_REPO_KEY/"
-          ./jfrog rt upload "$CHART_PACKAGE" "${HELM_REPO_KEY}/${{ inputs.chart_directory }}-${{ inputs.chart_version }}/" --server-id=jfrog-server
+          mkdir -p packaged
+          for chart_dir in ${{ inputs.charts_root }}/*; do
+            if [ -d "$chart_dir" ] && [ -f "$chart_dir/Chart.yaml" ]; then
+              chart_name=$(grep '^name:' "$chart_dir/Chart.yaml" | awk '{print $2}')
+              echo "Packaging $chart_name..."
+              helm dependency update "$chart_dir"
+              helm lint "$chart_dir"
+              helm package "$chart_dir" \
+                --version "${{ inputs.chart_version }}" \
+                --destination packaged
+
+              chart_package="packaged/${chart_name}-${{ inputs.chart_version }}.tgz"
+              echo "Uploading $chart_package to $HELM_REPO_KEY/${chart_name}-${{ inputs.chart_version }}/"
+              ./jfrog rt upload "$chart_package" "${HELM_REPO_KEY}/${chart_name}-${{ inputs.chart_version }}/" --server-id=jfrog-server
+            fi
+          done
 
       - name: Reindex Helm Repository
         run: |
-          echo "Reindexing Helm repo at: $HELM_REPO_KEY"
           ./jfrog rt helm-reindex "$HELM_REPO_KEY" --server-id=jfrog-server
-
 
       - name: Cleanup JFrog Config
         run: |
