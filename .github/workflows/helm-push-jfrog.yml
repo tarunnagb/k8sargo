@@ -66,7 +66,6 @@ jobs:
       - name: Install JFrog CLI
         run: |
           curl -fL https://install-cli.jfrog.io | sh
-          /jf --version
 
       - name: Configure JFrog CLI
         run: |
