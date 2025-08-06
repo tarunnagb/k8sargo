@@ -84,9 +84,11 @@ jobs:
             fi
           done
 
-      - name: Reindex Helm Repository
+      - name: Reindex Helm Repository via API
         run: |
-          ./jfrog rt helm-reindex "$HELM_REPO_KEY" --server-id=jfrog-server
+          curl -u "${JFROG_USERNAME}:${JFROG_PASSWORD}" \
+            -X POST "${JFROG_URL}/api/helm/${HELM_REPO_KEY}/reindex"
+
 
       - name: Cleanup JFrog Config
         run: |
