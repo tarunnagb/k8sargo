@@ -9,20 +9,14 @@ on:
         description: 'Environment'
         required: true
         default: dev
-        options:
-          - dev
-          - qa
-          - stg
-          - prd
+        options: [dev, qa, stg, prd]
 
       region:
         type: choice
         description: 'AWS Region'
         required: true
         default: us-east-1
-        options:
-          - us-east-1
-          - us-west-2
+        options: [us-east-1, us-west-2]
 
       charts_root:
         type: string
@@ -65,50 +59,29 @@ jobs:
             --password="${JFROG_PASSWORD}" \
             --interactive=false
 
-      - name: Package and Upload All Helm Charts
+      - name: Package All Helm Charts
         run: |
           mkdir -p packaged
           for chart_dir in ${{ inputs.charts_root }}/*; do
             if [ -d "$chart_dir" ] && [ -f "$chart_dir/Chart.yaml" ]; then
               chart_name=$(grep '^name:' "$chart_dir/Chart.yaml" | awk '{print $2}')
-              echo "::group::Processing chart: $chart_name"
-      
-              echo "Updating dependencies for $chart_name"
+              echo "Packaging $chart_name..."
               helm dependency update "$chart_dir"
-      
-              echo "Linting $chart_name"
               helm lint "$chart_dir"
-      
-              echo "Packaging $chart_name"
               helm package "$chart_dir" \
                 --version "${{ inputs.chart_version }}" \
                 --destination packaged
-      
-              chart_package="packaged/${chart_name}-${{ inputs.chart_version }}.tgz"
-              if [ ! -f "$chart_package" ]; then
-                echo "❌ ERROR: Chart package not found: $chart_package"
-                exit 1
-              fi
-      
-              echo "✅ Uploading $chart_package to $HELM_REPO_KEY/${chart_name}-${{ inputs.chart_version }}/"
-              ./jfrog rt upload "$chart_package" "${HELM_REPO_KEY}/${chart_name}-${{ inputs.chart_version }}/" --server-id=jfrog-server
-      
-              echo "::endgroup::"
             fi
           done
-      
 
-      - name: Reindex Helm Repository via API
+      - name: Upload Helm Charts to JFrog
         run: |
-          curl -u "${JFROG_USERNAME}:${JFROG_PASSWORD}" \
-            -X POST "${JFROG_URL}/api/helm/${HELM_REPO_KEY}/reindex"
-        env:
-          JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
-          JFROG_PASSWORD: ${{ secrets.JFROG_PASSWORD }}
-          JFROG_URL: ${{ vars.ARTIFACTORY }}
-          HELM_REPO_KEY: helm-charts-${{ inputs.environment }}
-
-
+          for package in packaged/*.tgz; do
+            chart_filename=$(basename "$package")
+            chart_name=$(echo "$chart_filename" | cut -d '-' -f1)
+            echo "Uploading $chart_filename to $HELM_REPO_KEY/${chart_name}-${{ inputs.chart_version }}/"
+            ./jfrog rt upload "$package" "${HELM_REPO_KEY}/${chart_name}-${{ inputs.chart_version }}/" --server-id=jfrog-server
+          done
 
       - name: Cleanup JFrog Config
         run: |
