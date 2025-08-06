@@ -26,12 +26,12 @@ on:
 
       chart_version:
         type: string
-        description: 'Helm Chart Version (e.g. a1b2c3d)'
+        description: 'Helm Chart Version (e.g. 1.0.1)'
         required: true
 
       chart_directory:
         type: string
-        description: 'Helm Chart Directory (e.g. eks-custom)'
+        description: 'Helm Chart Directory (e.g. alb-ingress)'
         required: true
 
 jobs:
@@ -48,9 +48,16 @@ jobs:
 
       - name: Package Helm Chart
         run: |
+          mkdir -p packaged
           helm dependency update ${{ inputs.chart_directory }}
           helm lint ${{ inputs.chart_directory }}
           helm package ${{ inputs.chart_directory }} --version ${{ inputs.chart_version }} --destination packaged
+
+      - name: Copy Helm chart with expected filename
+        run: |
+          ORIGINAL_FILE=$(ls packaged/*.tgz)
+          cp "$ORIGINAL_FILE" "packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
+          echo "Copied $ORIGINAL_FILE to packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
 
       - name: Publish to JFrog Artifactory
         env:
@@ -64,6 +71,8 @@ jobs:
           VERSION="${{ inputs.chart_version }}"
           FILE_NAME="${CHART_NAME}-${VERSION}.tgz"
           TARGET_PATH="${ARTIFACTORY_REPO}/${CHART_NAME}-${ENV}/${FILE_NAME}"
+
+          echo "Uploading packaged/${FILE_NAME} to $ARTIFACTORY_URL/$TARGET_PATH"
 
           curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
             -T packaged/${FILE_NAME} \
