@@ -88,6 +88,12 @@ jobs:
         run: |
           curl -u "${JFROG_USERNAME}:${JFROG_PASSWORD}" \
             -X POST "${JFROG_URL}/api/helm/${HELM_REPO_KEY}/reindex"
+        env:
+          JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
+          JFROG_PASSWORD: ${{ secrets.JFROG_PASSWORD }}
+          JFROG_URL: ${{ vars.ARTIFACTORY }}
+          HELM_REPO_KEY: helm-charts-${{ inputs.environment }}
+
 
 
       - name: Cleanup JFrog Config
