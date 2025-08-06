@@ -69,7 +69,7 @@ jobs:
 
       - name: Configure JFrog CLI
         run: |
-          ./jf config add jfrog-server \
+          ./jfrog config add jfrog-server \
             --url="${JFROG_URL}" \
             --user="${JFROG_USERNAME}" \
             --password="${JFROG_PASSWORD}" \
@@ -79,14 +79,14 @@ jobs:
         run: |
           CHART_PACKAGE="packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
           echo "Uploading $CHART_PACKAGE to $HELM_REPO_KEY/"
-          ./jf rt upload "$CHART_PACKAGE" "${HELM_REPO_KEY}/${{ inputs.chart_directory }}-${{ inputs.chart_version }}/" --server-id=jfrog-server
+          ./jfrog rt upload "$CHART_PACKAGE" "${HELM_REPO_KEY}/${{ inputs.chart_directory }}-${{ inputs.chart_version }}/" --server-id=jfrog-server
 
       - name: Reindex Helm Repository
         run: |
           echo "Reindexing Helm repo at: $HELM_REPO_KEY"
-          ./jf rt helm-reindex "$HELM_REPO_KEY" --server-id=jfrog-server
+          ./jfrog rt helm-reindex "$HELM_REPO_KEY" --server-id=jfrog-server
 
 
       - name: Cleanup JFrog Config
         run: |
-          ./jf config remove jfrog-server
+          ./jfrog config remove jfrog-server
