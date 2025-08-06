@@ -80,10 +80,6 @@ jobs:
           CHART_PACKAGE="packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
           echo "Uploading $CHART_PACKAGE to $HELM_REPO_KEY/"
           ./jfrog rt upload "$CHART_PACKAGE" "${HELM_REPO_KEY}/${{ inputs.chart_directory }}/" --server-id=jfrog-server
-
-      - name: Reindex Helm Repository
-        run: |
-          ./jfrog rt helm-reindex "${HELM_REPO_KEY}" --server-id=jfrog-server
           
       - name: Cleanup JFrog Config
         run: |
