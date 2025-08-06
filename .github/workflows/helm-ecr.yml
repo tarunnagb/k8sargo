@@ -22,74 +22,49 @@ on:
         default: us-east-1
         options:
           - us-east-1
-          - eu-central-1
-          - eu-west-1
           - us-west-2
-          - ap-southeast-2
-          - ap-south-1
 
-      helmChartPath:
-        description: 'Path to the Helm chart'
-        default: 'alb-ingress'
+      chart_version:
         type: string
+        description: 'Helm Chart Version (e.g. a1b2c3d)'
+        required: true
 
-      isHelmChartPush:
-        description: 'Whether to push the Helm chart to ECR'
-        default: true
-        type: boolean
+      chart_directory:
+        type: string
+        description: 'Helm Chart Directory (e.g. eks-custom)'
+        required: true
 
 jobs:
-  helm-publish:
-    name: Build and Push Helm Chart
-    runs-on: [self-hosted, Linux, X64, tar-runner]
-    permissions:
-      id-token: write
-      contents: read
+  publish-helm-chart:
+    runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source code
-        uses: actions/checkout@v4
+      - name: Checkout source
+        uses: actions/checkout@v3
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ${{ inputs.region }}
-          role-skip-session-tagging: true
-          role-duration-seconds: 1200
+      - name: Set up Helm
+        run: |
+          curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-      - name: Set ECR variables and login to Helm registry
+      - name: Package Helm Chart
         run: |
-          ACCOUNT_ID=$(aws sts get-caller-identity --query 'Account' --output text)
-          export ECR_REGISTRY="${ACCOUNT_ID}.dkr.ecr.${{ inputs.region }}.amazonaws.com"
-      
-          # Use the chart name directly (must match Chart.yaml -> name)
-          CHART_NAME="helm-alb-ingress"
-          export REPO_NAME="${CHART_NAME}"
-          export ECR_URI="oci://${ECR_REGISTRY}/${REPO_NAME}"
-      
-          echo "ECR_REGISTRY=${ECR_REGISTRY}" >> $GITHUB_ENV
-          echo "REPO_NAME=${REPO_NAME}" >> $GITHUB_ENV
-          echo "ECR_URI=${ECR_URI}" >> $GITHUB_ENV
-      
-          # Create ECR repository if it doesn't exist
-          aws ecr describe-repositories --repository-names "${REPO_NAME}" >/dev/null 2>&1 || \
-          aws ecr create-repository --repository-name "${REPO_NAME}"
-      
-          # Login to Helm OCI registry
-          aws ecr get-login-password --region ${{ inputs.region }} | \
-            helm registry login --username AWS --password-stdin "${ECR_REGISTRY}"
-      
-      - name: Package Helm chart
-        id: helm-package
+          helm dependency update ${{ inputs.chart_directory }}
+          helm lint ${{ inputs.chart_directory }}
+          helm package ${{ inputs.chart_directory }} --version ${{ inputs.chart_version }} --destination packaged
+
+      - name: Publish to JFrog Artifactory
+        env:
+          ARTIFACTORY_URL: https://yourcompany.jfrog.io/artifactory
+          ARTIFACTORY_REPO: helm-charts
+          ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
+          ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
         run: |
-          helm dependency update "${{ inputs.helmChartPath }}"
-          helm package "${{ inputs.helmChartPath }}" --destination .
-          CHART_PACKAGE=$(ls *.tgz)
-          echo "CHART_PACKAGE=${CHART_PACKAGE}" >> $GITHUB_ENV
-      
-      - name: Push Helm chart to ECR
-        if: ${{ inputs.isHelmChartPush }}
-        run: |
-          echo "Pushing Helm chart to: ${ECR_URI}"
-          helm push "${CHART_PACKAGE}" "${ECR_URI}" --debug
+          CHART_NAME="${{ inputs.chart_directory }}"
+          ENV="${{ inputs.environment }}"
+          VERSION="${{ inputs.chart_version }}"
+          FILE_NAME="${CHART_NAME}-${VERSION}.tgz"
+          TARGET_PATH="${ARTIFACTORY_REPO}/${CHART_NAME}-${ENV}/${FILE_NAME}"
+
+          curl -u $ARTIFACTORY_USERNAME:$ARTIFACTORY_PASSWORD \
+            -T packaged/${FILE_NAME} \
+            "$ARTIFACTORY_URL/$TARGET_PATH"
