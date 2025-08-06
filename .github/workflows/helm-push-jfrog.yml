@@ -31,51 +31,63 @@ on:
 
       chart_directory:
         type: string
-        description: 'Helm Chart Directory (e.g. alb-ingress)'
+        description: 'alb-ingress'
         required: true
 
 jobs:
   publish-helm-chart:
     runs-on: ubuntu-latest
 
+    env:
+      JFROG_URL: ${{ secrets.JFROG_URL }}
+      JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
+      JFROG_PASSWORD: ${{ secrets.JFROG_PASSWORD }}
+      HELM_REPO_KEY:  helm-charts-${{ inputs.environment }}  # e.g., helm-charts-dev
+
     steps:
       - name: Checkout source
         uses: actions/checkout@v3
 
-      - name: Set up Helm
+      - name: Install Helm
         run: |
           curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+          helm version
 
-      - name: Package Helm Chart
+      - name: Lint and Package Helm Chart
         run: |
           mkdir -p packaged
-          helm dependency update ${{ inputs.chart_directory }}
-          helm lint ${{ inputs.chart_directory }}
-          helm package ${{ inputs.chart_directory }} \
-            --version ${{ inputs.chart_version }} \
+          helm dependency update "${{ inputs.chart_directory }}"
+          helm lint "${{ inputs.chart_directory }}"
+          helm package "${{ inputs.chart_directory }}" \
+            --version "${{ inputs.chart_version }}" \
             --destination packaged
+          ls -l packaged
 
       - name: Install JFrog CLI
         run: |
           curl -fL https://install-cli.jfrog.io | sh
-          sudo mv jfrog /usr/local/bin/
+          ./jf --version
 
       - name: Configure JFrog CLI
-        env:
-          ARTIFACTORY_URL: ${{ vars.ARTIFACTORY }}
-          ARTIFACTORY_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
-          ARTIFACTORY_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
         run: |
-          jfrog config add jfrog-server \
-            --url=$ARTIFACTORY_URL \
-            --user=$ARTIFACTORY_USERNAME \
-            --password=$ARTIFACTORY_PASSWORD \
+          ./jf config add jfrog-server \
+            --url="${JFROG_URL}" \
+            --user="${JFROG_USERNAME}" \
+            --password="${JFROG_PASSWORD}" \
             --interactive=false
 
-      - name: Push Helm Chart to JFrog
+      - name: Upload Helm Chart to JFrog
         run: |
-          CHART_FILE="packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
-          jfrog rt upload "$CHART_FILE" "helm-charts-${{ inputs.environment }}/${{ inputs.chart_directory }}/"
+          CHART_PACKAGE="packaged/${{ inputs.chart_directory }}-${{ inputs.chart_version }}.tgz"
+          echo "Uploading $CHART_PACKAGE to $HELM_REPO_KEY/"
+          ./jf rt upload "$CHART_PACKAGE" "${HELM_REPO_KEY}/${{ inputs.chart_directory }}-${{ inputs.chart_version }}/" --server-id=jfrog-server
 
-      - name: Cleanup JFrog CLI Config
-        run: jfrog config remove jfrog-server
+      - name: Reindex Helm Repository
+        run: |
+          echo "Reindexing Helm repo at: $HELM_REPO_KEY"
+          ./jf rt helm-reindex "$HELM_REPO_KEY" --server-id=jfrog-server
+
+
+      - name: Cleanup JFrog Config
+        run: |
+          ./jf config remove jfrog-server
