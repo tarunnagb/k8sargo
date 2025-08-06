@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      JFROG_URL: ${{ secrets.JFROG_URL }}
+      JFROG_URL: ${{ vars.ARTIFACTORY }}
       JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
       JFROG_PASSWORD: ${{ secrets.JFROG_PASSWORD }}
       HELM_REPO_KEY:  helm-charts-${{ inputs.environment }}  # e.g., helm-charts-dev
