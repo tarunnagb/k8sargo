@@ -40,8 +40,8 @@ jobs:
 
     env:
       JFROG_URL: ${{ vars.ARTIFACTORY }}
-      JFROG_USERNAME: ${{ secrets.JFROG_USERNAME }}
-      JFROG_PASSWORD: ${{ secrets.JFROG_PASSWORD }}
+      JFROG_USERNAME: ${{ secrets.ARTIFACTORY_USERNAME }}
+      JFROG_PASSWORD: ${{ secrets.ARTIFACTORY_PASSWORD }}
       HELM_REPO_KEY:  helm-charts-${{ inputs.environment }}  # e.g., helm-charts-dev
 
     steps:
